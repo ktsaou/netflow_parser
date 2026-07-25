@@ -1,6 +1,6 @@
 use netflow_parser::variable_versions::field_value::FieldValue;
-use netflow_parser::variable_versions::ipfix::lookup::IPFixField;
 use netflow_parser::variable_versions::ipfix::Data;
+use netflow_parser::variable_versions::ipfix::lookup::IPFixField;
 
 #[test]
 fn data_new_accepts_fixed_opaque_values_larger_than_254_octets() {
