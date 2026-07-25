@@ -1,4 +1,7 @@
 use netflow_parser::NetflowParser;
+use netflow_parser::variable_versions::ipfix::{
+    Data, FlowSet, FlowSetBody, FlowSetHeader, Header, IPFix,
+};
 
 fn message_with_set(id: u16, body: &[u8]) -> Vec<u8> {
     let length = u16::try_from(20 + body.len()).unwrap();
@@ -35,4 +38,26 @@ fn empty_unknown_template_data_set_is_rejected() {
             .parse_bytes(&message_with_set(257, &[]))
             .is_err()
     );
+}
+
+#[test]
+fn empty_data_set_is_not_serialized() {
+    let packet = IPFix {
+        header: Header {
+            version: 10,
+            length: 20,
+            export_time: 1,
+            sequence_number: 2,
+            observation_domain_id: 3,
+        },
+        flowsets: vec![FlowSet {
+            header: FlowSetHeader {
+                header_id: 256,
+                length: 4,
+            },
+            body: FlowSetBody::Data(Data::new(Vec::new())),
+        }],
+    };
+
+    assert!(packet.to_be_bytes().is_err());
 }
