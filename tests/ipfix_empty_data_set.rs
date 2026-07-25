@@ -27,3 +27,12 @@ fn empty_known_template_data_set_is_rejected() {
 
     assert!(parser.parse_bytes(&message_with_set(256, &[])).is_err());
 }
+
+#[test]
+fn empty_unknown_template_data_set_is_rejected() {
+    assert!(
+        NetflowParser::default()
+            .parse_bytes(&message_with_set(257, &[]))
+            .is_err()
+    );
+}
