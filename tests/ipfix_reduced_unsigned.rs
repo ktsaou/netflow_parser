@@ -17,22 +17,35 @@ fn message_with_set(id: u16, body: &[u8]) -> Vec<u8> {
 
 #[test]
 fn five_octet_reduced_unsigned_value_is_decoded() {
-    let mut template = Vec::new();
-    template.extend_from_slice(&256u16.to_be_bytes());
-    template.extend_from_slice(&1u16.to_be_bytes());
-    template.extend_from_slice(&1u16.to_be_bytes());
-    template.extend_from_slice(&5u16.to_be_bytes());
+    for (field_value, expected) in [
+        (&[0x80, 0, 0, 0, 5][..], 0x80_0000_0005),
+        (&[0x80, 0, 0, 0, 0, 5][..], 0x8000_0000_0005),
+        (&[0x80, 0, 0, 0, 0, 0, 5][..], 0x80_0000_0000_0005),
+    ] {
+        let mut template = Vec::new();
+        template.extend_from_slice(&256u16.to_be_bytes());
+        template.extend_from_slice(&1u16.to_be_bytes());
+        template.extend_from_slice(&1u16.to_be_bytes());
+        template.extend_from_slice(&u16::try_from(field_value.len()).unwrap().to_be_bytes());
 
-    let mut parser = NetflowParser::default();
-    assert!(parser.parse_bytes(&message_with_set(2, &template)).is_ok());
+        let mut parser = NetflowParser::default();
+        assert!(parser.parse_bytes(&message_with_set(2, &template)).is_ok());
 
-    let decoded = parser.parse_bytes(&message_with_set(256, &[0x80, 0, 0, 0, 5]));
-    assert!(decoded.error.is_none(), "{:#?}", decoded.error);
-    let NetflowPacket::IPFix(packet) = &decoded.packets[0] else {
-        panic!("expected IPFIX packet");
-    };
-    let FlowSetBody::Data(data) = &packet.flowsets[0].body else {
-        panic!("expected IPFIX data");
-    };
-    assert_eq!(data.fields[0][0].1.as_u64(), Some(0x80_0000_0005));
+        let decoded = parser.parse_bytes(&message_with_set(256, field_value));
+        assert!(decoded.error.is_none(), "{:#?}", decoded.error);
+        let NetflowPacket::IPFix(packet) = &decoded.packets[0] else {
+            panic!("expected IPFIX packet");
+        };
+        let FlowSetBody::Data(data) = &packet.flowsets[0].body else {
+            panic!("expected IPFIX data");
+        };
+        assert_eq!(data.fields[0][0].1.as_u64(), Some(expected));
+
+        let mut canonical_body = field_value.to_vec();
+        canonical_body.resize(8, 0);
+        assert_eq!(
+            packet.to_be_bytes().unwrap(),
+            message_with_set(256, &canonical_body)
+        );
+    }
 }
