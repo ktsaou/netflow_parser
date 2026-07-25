@@ -34,3 +34,11 @@ fn empty_known_template_data_flowset_is_rejected() {
     append_flowset(&mut empty_data, 256, &[]);
     assert!(parser.parse_bytes(&empty_data).is_err());
 }
+
+#[test]
+fn empty_unknown_template_data_flowset_is_rejected() {
+    let mut empty_data = header();
+    append_flowset(&mut empty_data, 257, &[]);
+
+    assert!(NetflowParser::default().parse_bytes(&empty_data).is_err());
+}
