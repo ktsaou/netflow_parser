@@ -1,3 +1,4 @@
+use netflow_parser::variable_versions::v9::FlowSetBody;
 use netflow_parser::{NetflowPacket, NetflowParser};
 
 fn header() -> Vec<u8> {
@@ -40,6 +41,10 @@ fn reexport_preserves_nonzero_data_flowset_padding() {
     let NetflowPacket::V9(packet) = &decoded.packets[0] else {
         panic!("expected NetFlow v9 packet");
     };
+    let FlowSetBody::Data(data) = &packet.flowsets[0].body else {
+        panic!("expected NetFlow v9 data");
+    };
 
+    assert_eq!(data.padding, [0xaa, 0xbb, 0xcc]);
     assert_eq!(packet.to_be_bytes().unwrap(), wire);
 }
