@@ -1,4 +1,7 @@
 use netflow_parser::NetflowParser;
+use netflow_parser::variable_versions::v9::{
+    Data, FlowSet, FlowSetBody, FlowSetHeader, Header, V9,
+};
 
 fn header() -> Vec<u8> {
     let mut packet = Vec::new();
@@ -41,4 +44,27 @@ fn empty_unknown_template_data_flowset_is_rejected() {
     append_flowset(&mut empty_data, 257, &[]);
 
     assert!(NetflowParser::default().parse_bytes(&empty_data).is_err());
+}
+
+#[test]
+fn empty_data_flowset_is_not_serialized() {
+    let packet = V9 {
+        header: Header {
+            version: 9,
+            count: 1,
+            sys_up_time: 1,
+            unix_secs: 2,
+            sequence_number: 3,
+            source_id: 4,
+        },
+        flowsets: vec![FlowSet {
+            header: FlowSetHeader {
+                flowset_id: 256,
+                length: 4,
+            },
+            body: FlowSetBody::Data(Data::new(Vec::new())),
+        }],
+    };
+
+    assert!(packet.to_be_bytes().is_err());
 }
