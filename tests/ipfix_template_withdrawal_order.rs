@@ -1,5 +1,7 @@
 use netflow_parser::variable_versions::ipfix::FlowSetBody;
-use netflow_parser::{NetflowPacket, NetflowParser};
+use netflow_parser::{NetflowPacket, NetflowParser, TemplateEvent};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn append_set(message: &mut Vec<u8>, id: u16, body: &[u8]) {
     message.extend_from_slice(&id.to_be_bytes());
@@ -28,10 +30,35 @@ fn template_withdrawal_takes_effect_in_wire_order() {
     let length = u16::try_from(message.len()).unwrap();
     message[2..4].copy_from_slice(&length.to_be_bytes());
 
-    let result = NetflowParser::default().parse_bytes(&message);
+    let learned_events = Arc::new(AtomicUsize::new(0));
+    let learned_events_for_hook = Arc::clone(&learned_events);
+    let mut parser = NetflowParser::builder()
+        .on_template_event(move |event| {
+            if matches!(event, TemplateEvent::Learned { .. }) {
+                learned_events_for_hook.fetch_add(1, Ordering::Relaxed);
+            }
+            Ok(())
+        })
+        .build()
+        .unwrap();
+    let result = parser.parse_bytes(&message);
     assert!(result.error.is_none(), "{:#?}", result.error);
     let NetflowPacket::IPFix(packet) = &result.packets[0] else {
         panic!("expected IPFIX packet");
     };
-    assert!(matches!(packet.flowsets[1].body, FlowSetBody::NoTemplate(_)));
+    let FlowSetBody::Templates(templates) = &packet.flowsets[0].body else {
+        panic!("expected both Template records");
+    };
+    assert_eq!(
+        templates
+            .iter()
+            .map(|template| template.field_count)
+            .collect::<Vec<_>>(),
+        [1, 0]
+    );
+    assert!(matches!(
+        packet.flowsets[1].body,
+        FlowSetBody::NoTemplate(_)
+    ));
+    assert_eq!(learned_events.load(Ordering::Relaxed), 1);
 }
