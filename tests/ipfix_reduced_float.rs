@@ -39,4 +39,8 @@ fn four_octet_reduced_float64_value_is_decoded() {
         data.fields[0][0].1,
         FieldValue::Float64(value) if value == 1.5
     ));
+    assert_eq!(
+        packet.to_be_bytes().unwrap(),
+        message_with_set(256, &1.5f32.to_be_bytes())
+    );
 }
