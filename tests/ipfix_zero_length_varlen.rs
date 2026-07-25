@@ -28,7 +28,36 @@ fn one_octet_zero_length_value_is_a_data_record() {
     let learned = parser.parse_bytes(&message_with_set(2, &template));
     assert!(learned.error.is_none(), "{:#?}", learned.error);
 
-    let decoded = parser.parse_bytes(&message_with_set(256, &[0]));
+    let data_message = message_with_set(256, &[0]);
+    let decoded = parser.parse_bytes(&data_message);
+    assert!(decoded.error.is_none(), "{:#?}", decoded.error);
+    let NetflowPacket::IPFix(packet) = &decoded.packets[0] else {
+        panic!("expected IPFIX packet");
+    };
+    let FlowSetBody::Data(data) = &packet.flowsets[0].body else {
+        panic!("expected IPFIX data");
+    };
+    assert_eq!(data.fields.len(), 1);
+    assert!(matches!(
+        &data.fields[0][0].1,
+        FieldValue::String(value) if value.raw.is_empty()
+    ));
+    assert!(packet.to_be_bytes().is_ok());
+}
+
+#[test]
+fn extended_zero_length_value_is_a_data_record() {
+    let mut template = Vec::new();
+    template.extend_from_slice(&256u16.to_be_bytes());
+    template.extend_from_slice(&1u16.to_be_bytes());
+    template.extend_from_slice(&82u16.to_be_bytes());
+    template.extend_from_slice(&u16::MAX.to_be_bytes());
+
+    let mut parser = NetflowParser::default();
+    let learned = parser.parse_bytes(&message_with_set(2, &template));
+    assert!(learned.error.is_none(), "{:#?}", learned.error);
+
+    let decoded = parser.parse_bytes(&message_with_set(256, &[255, 0, 0]));
     assert!(decoded.error.is_none(), "{:#?}", decoded.error);
     let NetflowPacket::IPFix(packet) = &decoded.packets[0] else {
         panic!("expected IPFIX packet");
